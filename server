@@ -1,0 +1,79 @@
+
+#include <iostream>
+#include <fstream>
+#include <pthread.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include "fila.h"
+using namespace std;
+
+#define N_IMPRESSORAS 3  // número de threads (impressoras)
+
+Fila fila;  // fila de impressão compartilhada
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER; // mutex para proteger acesso à fila
+
+// Função que representa uma impressora (executada por uma thread)
+void* impressora(void* arg) {
+    long id = (long)arg; // id da impressora (número da thread)
+    while (true) {
+        pthread_mutex_lock(&mutex); // entra na região crítica
+        if (!filaVazia(&fila)) {
+            // Retira job da fila
+            TrabalhoImpressao job = desenfileirar(&fila);
+            pthread_mutex_unlock(&mutex); // libera acesso à fila
+
+            // Simula o processamento
+            cout << "Impressora " << id
+                 << " processando job " << job.id_job
+                 << " (" << job.nome_arquivo
+                 << ", " << job.numero_paginas << " páginas)" << endl;
+
+            sleep(job.numero_paginas); // simula tempo de impressão
+        } else {
+            pthread_mutex_unlock(&mutex); // libera se fila vazia
+            sleep(1); // espera antes de tentar de novo
+        }
+    }
+    return nullptr;
+}
+
+int main() {
+    inicializarFila(&fila); // fila começa vazia
+
+    // Cria FIFO (caso ainda não exista)
+    mkfifo("canal_fifo", 0666);
+
+    // Abre FIFO como arquivo de entrada (modo binário)
+    ifstream fifo_in("canal_fifo", ios::in | ios::binary);
+    if (!fifo_in) {
+        cerr << "Erro ao abrir FIFO para leitura!" << endl;
+        return 1;
+    }
+
+    // Cria threads (impressoras)
+    pthread_t threads[N_IMPRESSORAS];
+    for (long i = 0; i < N_IMPRESSORAS; i++) {
+        pthread_create(&threads[i], nullptr, impressora, (void*)i);
+    }
+
+    // Loop para receber jobs dos clientes
+    while (true) {
+        TrabalhoImpressao job;
+        // Lê dados do FIFO
+        fifo_in.read(reinterpret_cast<char*>(&job), sizeof(TrabalhoImpressao));
+
+        // Se leu um job completo
+        if (fifo_in.gcount() == sizeof(TrabalhoImpressao)) {
+            pthread_mutex_lock(&mutex);   // protege a fila
+            enfileirar(&fila, job);       // insere job
+            pthread_mutex_unlock(&mutex); // libera fila
+
+            cout << "Servidor recebeu job " << job.id_job << endl;
+        } else {
+            usleep(1000); // espera 1ms para evitar loop ocupado
+        }
+    }
+
+    fifo_in.close(); // nunca chega aqui, mas por boa prática
+    return 0;
+}
