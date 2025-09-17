@@ -1,0 +1,28 @@
+#include <iostream>
+#include <fstream>
+#include <unistd.h>
+#include <sys/stat.h>
+#include "fila.h"
+using namespace std;
+
+int main() {
+    // Cria um job de impressão
+    TrabalhoImpressao job;
+    job.id_job = getpid();                 // usa PID do processo como identificador
+    job.nome_arquivo = "documento.txt";    // exemplo de nome de arquivo
+    job.numero_paginas = rand() % 10 + 1;  // número aleatório de páginas (1 a 10)
+
+    // Abre FIFO como arquivo de saída (modo binário)
+    ofstream fifo_out("canal_fifo", ios::out | ios::binary);
+    if (!fifo_out) {
+        cerr << "Erro ao abrir FIFO para escrita!" << endl;
+        return 1;
+    }
+
+    // Escreve o job no FIFO (em formato binário)
+    fifo_out.write(reinterpret_cast<char*>(&job), sizeof(TrabalhoImpressao));
+    fifo_out.close();
+
+    cout << "Cliente enviou job " << job.id_job << endl;
+    return 0;
+}
