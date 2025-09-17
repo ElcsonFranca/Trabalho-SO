@@ -1,0 +1,48 @@
+#include "fila.h"
+#include <iostream>
+using namespace std;
+
+// Inicializa a fila como vazia
+void inicializarFila(Fila* f) {
+    f->inicio = nullptr;
+    f->fim = nullptr;
+}
+
+// Retorna verdadeiro se a fila estiver vazia
+bool filaVazia(Fila* f) {
+    return (f->inicio == nullptr);
+}
+
+// Insere um novo job no final da fila
+void enfileirar(Fila* f, TrabalhoImpressao job) {
+    Nodo* novo = new Nodo;   // aloca memória dinamicamente
+    novo->job = job;         // armazena o job
+    novo->prox = nullptr;    // último elemento aponta para NULL
+
+    if (f->fim == nullptr) { // fila estava vazia
+        f->inicio = novo;
+        f->fim = novo;
+    } else {                 // já havia elementos
+        f->fim->prox = novo;
+        f->fim = novo;
+    }
+}
+
+// Remove e retorna o primeiro job da fila
+TrabalhoImpressao desenfileirar(Fila* f) {
+    if (filaVazia(f)) {
+        // Retorna um job "vazio" se não houver nada
+        return {0, "", 0};
+    }
+
+    Nodo* temp = f->inicio;          // guarda o primeiro nó
+    TrabalhoImpressao job = temp->job; // pega os dados
+    f->inicio = f->inicio->prox;     // move início para o próximo
+
+    if (f->inicio == nullptr) {      // se a fila ficou vazia
+        f->fim = nullptr;
+    }
+
+    delete temp;                     // libera memória
+    return job;                      // retorna o job removido
+}
